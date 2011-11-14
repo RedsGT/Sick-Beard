@@ -21,6 +21,7 @@ import urllib, urllib2
 import socket
 import base64
 import time, struct
+import json
 
 import sickbeard
 
@@ -36,14 +37,17 @@ except ImportError:
 
 class XBMCNotifier:
 
+    #Broken agaist Eden until JSON API update 11/13/11 - RedsGT
     def notify_snatch(self, ep_name):
         if sickbeard.XBMC_NOTIFY_ONSNATCH:
             self._notifyXBMC(ep_name, common.notifyStrings[common.NOTIFY_SNATCH])
 
+    #Broken agaist Eden until JSON API update 11/13/11 - RedsGT
     def notify_download(self, ep_name):
         if sickbeard.XBMC_NOTIFY_ONDOWNLOAD:
             self._notifyXBMC(ep_name, common.notifyStrings[common.NOTIFY_DOWNLOAD])
 
+    #Broken agaist Eden until JSON API update 11/13/11 - RedsGT
     def test_notify(self, host, username, password):
         return self._notifyXBMC("Testing XBMC notifications from Sick Beard", "Test Notification", host, username, password, force=True)
 
@@ -51,10 +55,11 @@ class XBMCNotifier:
         if sickbeard.XBMC_UPDATE_LIBRARY:
             for curHost in [x.strip() for x in sickbeard.XBMC_HOST.split(",")]:
                 # do a per-show update first, if possible
-                if not self._update_library(curHost, showName=show_name) and sickbeard.XBMC_UPDATE_FULL:
-                    # do a full update if requested
-                    logger.log(u"Update of show directory failed on " + curHost + ", trying full update as requested", logger.ERROR)
-                    self._update_library(curHost)
+                #Broken agaist Eden until JSON API update 11/13/11 - RedsGT
+                #if not self._update_library(curHost, showName=show_name) and sickbeard.XBMC_UPDATE_FULL:
+                # do a full update if requested
+                logger.log(u"Update of show directory failed on " + curHost + ", trying full update as requested", logger.ERROR)
+                self._update_library(curHost)
 
     def _username(self):
         return sickbeard.XBMC_USERNAME
@@ -72,8 +77,8 @@ class XBMCNotifier:
         '''
         Handles communication with XBMC servers
     
-        command - Dictionary of field/data pairs, encoded via urllib.urlencode and
-        passed to /xbmcCmds/xbmcHttp
+        command - Dictionary of field/data pairs, encoded via json.dumps and
+        passed to /jsonrpc
     
         host - host/ip + port (foo:8080)
         '''
@@ -87,14 +92,14 @@ class XBMCNotifier:
             if type(command[key]) == unicode:
                 command[key] = command[key].encode('utf-8')
     
-        enc_command = urllib.urlencode(command)
+        enc_command = json.dumps(command)
         logger.log(u"Encoded command is " + enc_command, logger.DEBUG)
-        # Web server doesn't like POST, GET is the way to go
-        url = 'http://%s/xbmcCmds/xbmcHttp/?%s' % (host, enc_command)
+
+        url = 'http://%s/jsonrpc' % (host)
     
         try:
             # If we have a password, use authentication
-            req = urllib2.Request(url)
+            req = urllib2.Request(url, enc_command)
             if password:
                 logger.log(u"Adding Password to XBMC url", logger.DEBUG)
                 base64string = base64.encodestring('%s:%s' % (username, password))[:-1]
@@ -131,7 +136,10 @@ class XBMCNotifier:
         result = ''
     
         for curHost in [x.strip() for x in host.split(",")]:
-            command = {'command': 'ExecBuiltIn', 'parameter': 'Notification(' +fileString + ')' }
+            #command = {'command': 'ExecBuiltIn', 'parameter': 'Notification(' +fileString + ')' } #HTTP API not allowed in Eden - RedsGT
+            #Placeholder command until JSON API supports notifications(11/13/11) - RedsGT
+            command = {'jsonrpc': '2.0', 'method': 'JSONRPC.Ping', 'id': 1} #JSON
+    
             logger.log(u"Sending notification to XBMC via host: "+ curHost +"username: "+ username + " password: " + password, logger.DEBUG)
             if result:
                 result += ', '
@@ -203,7 +211,8 @@ class XBMCNotifier:
                     time.sleep(5)
         else:
             logger.log(u"XBMC Updating " + host, logger.DEBUG)
-            updateCommand = {'command': 'ExecBuiltIn', 'parameter': 'XBMC.updatelibrary(video)'}
+            #updateCommand = {'command': 'ExecBuiltIn', 'parameter': 'XBMC.updatelibrary(video)'} #HTTP API not allowed in Eden - RedsGT
+            updateCommand = {'jsonrpc': '2.0', 'method': 'VideoLibrary.Scan', 'id': 1} #JSON
             request = self._sendToXBMC(updateCommand, host)
     
             if not request:
